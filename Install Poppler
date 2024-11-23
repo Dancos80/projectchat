@@ -1,0 +1,72 @@
+Instalação Poppler
+
+Você precisa instalar o módulo pdf2image e suas dependências. Aqui está o passo a passo:
+
+1 - Primeiro, instale o pdf2image via pip:
+Bash
+
+2 - Depois, você precisa instalar o Poppler.
+
+Para Windows:
+
+1 - Baixe o Poppler para Windows em: https://github.com/oschwartz10612/poppler-windows/releases/
+
+2 - Extraia os arquivos para uma pasta (ex: C:\Program Files\poppler-xx)
+
+3 - Adicione o caminho da pasta bin do Poppler ao PATH do sistema
+
+Alternativamente, você pode usar apenas o PyMuPDF sem o pdf2image. Aqui está a versão simplificada do código que usa apenas PyMuPDF:
+
+
+pip install PyMuPDF
+
+
+Vou te guiar no processo de adicionar o Poppler ao PATH do sistema Windows:
+
+1 - Primeiro, baixe e extraia o Poppler:
+	
+	Baixe de: https://github.com/oschwartz10612/poppler-windows/releases/
+
+	Extraia para um local permanente (ex: C:\Program Files\poppler-xx)
+
+Para adicionar ao PATH do sistema:
+
+Método 1 - Via Interface Gráfica:
+1 - Pressione Windows + R
+
+2 - Digite sysdm.cpl e pressione Enter
+
+3 - Vá para a aba "Avançado"
+
+4 - Clique em "Variáveis de Ambiente"
+
+5 - Na seção "Variáveis do Sistema", encontre "Path"
+
+6 - Clique em "Editar"
+
+7 - Clique em "Novo"
+
+8 - Adicione o caminho completo da pasta bin do Poppler (ex: C:\Program Files\poppler-xx\Library\bin)
+
+9. Clique "OK" em todas as janelas
+
+
+Método 2 - Via PowerShell (Como Administrador):
+
+Powershell
+
+# Substitua o caminho abaixo pelo caminho real da sua instalação
+$popplerPath = "C:\Program Files\poppler-xx\Library\bin"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";" + $popplerPath, "Machine")
+
+CMD.exe
+where pdftoppm
+
+
+Após adicionar ao PATH:
+Feche e reabra o seu IDE/Editor
+Verifique a instalação abrindo um novo terminal e digitando:
+CMD.exe
+
+Se tudo estiver correto, você verá o caminho do executável do Poppler.
+Nota: Substitua poppler-xx pela versão específica que você baixou (ex: poppler-23.11.0-0).
