@@ -2627,6 +2627,8 @@ class MainWindow(QMainWindow):
                     # Adicionar à lista visual
                     item = QListWidgetItem(nome)
                     self.sites_list.addItem(item)
+                    self.sites_list.setCurrentItem(item)
+                    self.sites_list.setFocus()
 
                     QMessageBox.information(dialogo, "Sucesso", "Site adicionado com sucesso!")
                     dialogo.accept()
@@ -2737,6 +2739,41 @@ class MainWindow(QMainWindow):
             if item:
                 site_info = item.text()
                 
+                # Criar container para a aba
+                container = QWidget()
+                layout = QVBoxLayout(container)
+                layout.setContentsMargins(0, 0, 0, 0)  # Remove todas as margens
+                layout.setSpacing(0)  # Remove espaçamento entre elementos
+                
+                # Criar barra de navegação
+                nav_bar = QHBoxLayout()
+                nav_bar.setContentsMargins(1, 0, 1, 1)  # Reduz ainda mais as margens, especialmente no topo
+                nav_bar.setSpacing(1)  # Reduz espaçamento entre botões
+                
+                # Botões de navegação
+                back_button = QPushButton("Voltar")
+                back_button.setMaximumWidth(60)
+                forward_button = QPushButton("Avançar")
+                forward_button.setMaximumWidth(60)
+                refresh_button = QPushButton("Atualizar")
+                refresh_button.setMaximumWidth(60)
+                
+                # Campo de endereço
+                address_bar = QLineEdit()
+                address_bar.setPlaceholderText("Digite o endereço da web")
+                
+                # Adicionar widgets à barra de navegação
+                nav_bar.addWidget(back_button)
+                nav_bar.addWidget(forward_button)
+                nav_bar.addWidget(refresh_button)
+                nav_bar.addWidget(address_bar)
+                
+                # Criar widget para conter a barra de navegação
+                nav_widget = QWidget()
+                nav_widget.setLayout(nav_bar)
+                nav_widget.setContentsMargins(0, 0, 0, 0)  # Remove todas as margens do widget de navegação
+                nav_widget.setFixedHeight(30)  # Define altura fixa para a barra de navegação
+                
                 # Carregar sites do arquivo JSON
                 with open('sites.json', 'r', encoding='utf-8') as f:
                     sites = json.load(f)
@@ -2748,24 +2785,39 @@ class MainWindow(QMainWindow):
                     url = site['url']
                     if not url.startswith(('http://', 'https://')):
                         url = 'https://' + url
-
+                    
+                    # Criar visualizador web
+                    web_view = QWebEngineView()
+                    web_view.setUrl(QUrl(url))
+                    web_view.setContentsMargins(0, 0, 0, 0)
+                    
+                    # Conectar botões e campo de endereço
+                    back_button.clicked.connect(web_view.back)
+                    forward_button.clicked.connect(web_view.forward)
+                    refresh_button.clicked.connect(web_view.reload)
+                    address_bar.returnPressed.connect(
+                        lambda: self.load_url(web_view, address_bar.text())
+                    )
+                    
+                    # Atualizar o campo de endereço quando a URL mudar
+                    web_view.urlChanged.connect(lambda qurl: address_bar.setText(qurl.toString()))
+                    
+                    # Adicionar widgets ao layout
+                    layout.addWidget(nav_widget)
+                    layout.addWidget(web_view)
+                    
                     # Verificar se já existe uma aba com este site
                     for i in range(self.sites_tabs.count()):
                         if self.sites_tabs.tabText(i) == site_info:
                             self.sites_tabs.setCurrentIndex(i)
                             return
-
-                    # Criar visualizador web
-                    web_view = QWebEngineView()
-                    web_view.setUrl(QUrl(url))
-
+                    
                     # Adicionar nova aba
-                    index = self.sites_tabs.addTab(web_view, site_info)
+                    index = self.sites_tabs.addTab(container, site_info)
                     self.sites_tabs.setCurrentIndex(index)
-
+                    
         except Exception as e:
-            import traceback
-            print(traceback.format_exc())  # Isso vai mostrar o erro detalhado
+            print(f"Erro ao carregar site: {str(e)}")
             QMessageBox.warning(
                 self,
                 "Erro",
@@ -2960,52 +3012,39 @@ class MainWindow(QMainWindow):
                 self.save_sites()
 
     def show_remove_site_dialog(self):
-        """Remove o site selecionado"""
+        """Mostra diálogo para remover site"""
         current_item = self.sites_list.currentItem()
         if current_item:
-            site_name = current_item.text()  # Guarda o nome do site a ser removido
-            
             reply = QMessageBox.question(
                 self,
-                'Confirmar Exclusão',
-                f'Tem certeza que deseja remover o site "{site_name}"?',
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                "Confirmar Remoção",
+                "Deseja remover este site?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             
             if reply == QMessageBox.StandardButton.Yes:
-                try:
-                    index = self.sites_list.currentRow()
-                    
-                    # Remover da lista visual
-                    self.sites_list.takeItem(index)
-                    
-                    # Remover do arquivo JSON
-                    with open('sites.json', 'r', encoding='utf-8') as f:
-                        sites = json.load(f)
-                    
-                    sites.pop(index)
-                    
-                    with open('sites.json', 'w', encoding='utf-8') as f:
-                        json.dump(sites, f, ensure_ascii=False, indent=4)
-                    
-                    # Fechar a aba correspondente se estiver aberta
-                    for i in range(self.sites_tabs.count()):
-                        if self.sites_tabs.tabText(i) == site_name:
-                            self.sites_tabs.removeTab(i)
-                            break
-                    
-                    QMessageBox.information(self, "Sucesso", "Site removido com sucesso!")
-                    
-                except Exception as e:
-                    QMessageBox.warning(self, "Erro", f"Erro ao remover site: {str(e)}")
+                index = self.sites_list.currentRow()
+                self.sites.pop(index)
+                self.save_sites()
+                self.site_details.hide()
 
     def show_edit_site_dialog(self):
         """Mostra diálogo para editar site"""
         current_item = self.sites_list.currentItem()
-        if current_item:
-            index = self.sites_list.currentRow()
-            site = self.sites[index]
+        if not current_item:
+            return
+        
+        try:
+            # Carregar sites do arquivo JSON
+            with open('sites.json', 'r', encoding='utf-8') as f:
+                sites = json.load(f)
+            
+            # Encontrar o site pelo nome atual
+            old_name = current_item.text()
+            site = next((s for s in sites if s['nome'] == old_name), None)
+            
+            if not site:
+                return
             
             dialog = QDialog(self)
             dialog.setWindowTitle("Editar Site")
@@ -3024,22 +3063,58 @@ class MainWindow(QMainWindow):
             
             # Botões
             buttons = QDialogButtonBox(
-                QDialogButtonBox.StandardButton.Ok | 
+                QDialogButtonBox.StandardButton.Save | 
                 QDialogButtonBox.StandardButton.Cancel
             )
-            buttons.accepted.connect(dialog.accept)
-            buttons.rejected.connect(dialog.reject)
             layout.addWidget(buttons)
             
             dialog.setLayout(layout)
             
-            if dialog.exec() == QDialog.DialogCode.Accepted:
-                nome = name_input.text().strip()
-                url = url_input.text().strip()
-                if nome and url:
-                    self.sites[index] = {"nome": nome, "url": url}
-                    self.save_sites()
-                    self.on_site_selected(self.sites_list.currentItem())
+            def save_changes():
+                new_name = name_input.text().strip()
+                new_url = url_input.text().strip()
+                
+                if not new_name or not new_url:
+                    QMessageBox.warning(dialog, "Erro", "Nome e URL são obrigatórios!")
+                    return
+                
+                try:
+                    # Atualizar site no array
+                    site['nome'] = new_name
+                    site['url'] = new_url
+                    
+                    # Salvar no arquivo
+                    with open('sites.json', 'w', encoding='utf-8') as f:
+                        json.dump(sites, f, ensure_ascii=False, indent=4)
+                    
+                    # Atualizar item na lista
+                    current_item.setText(new_name)
+                    
+                    # Atualizar título da aba se estiver aberta
+                    for i in range(self.sites_tabs.count()):
+                        tab_text = self.sites_tabs.tabText(i)
+                        if tab_text == old_name:
+                            print(f"Atualizando aba de '{old_name}' para '{new_name}'")
+                            self.sites_tabs.setTabText(i, new_name)
+                            
+                            # Forçar atualização visual
+                            self.sites_tabs.update()
+                            QApplication.processEvents()
+                        
+                    QMessageBox.information(dialog, "Sucesso", "Site atualizado com sucesso!")
+                    dialog.accept()
+                    
+                except Exception as e:
+                    QMessageBox.warning(dialog, "Erro", f"Erro ao salvar alterações: {str(e)}")
+            
+            buttons.accepted.connect(save_changes)
+            buttons.rejected.connect(dialog.reject)
+            
+            dialog.exec()
+            
+        except Exception as e:
+            print(f"Erro ao editar site: {str(e)}")
+            QMessageBox.warning(self, "Erro", f"Erro ao editar site: {str(e)}")
 
     def export_sites(self):
         """Exporta sites para arquivo JSON"""
@@ -3083,6 +3158,41 @@ class MainWindow(QMainWindow):
             if item:
                 site_info = item.text()
                 
+                # Criar container para a aba
+                container = QWidget()
+                layout = QVBoxLayout(container)
+                layout.setContentsMargins(0, 0, 0, 0)  # Remove todas as margens
+                layout.setSpacing(0)  # Remove espaçamento entre elementos
+                
+                # Criar barra de navegação
+                nav_bar = QHBoxLayout()
+                nav_bar.setContentsMargins(1, 0, 1, 1)  # Reduz ainda mais as margens, especialmente no topo
+                nav_bar.setSpacing(8)  # Reduz espaçamento entre botões
+                
+                # Botões de navegação
+                back_button = QPushButton("Voltar")
+                back_button.setMaximumWidth(60)
+                forward_button = QPushButton("Avançar")
+                forward_button.setMaximumWidth(60)
+                refresh_button = QPushButton("Atualizar")
+                refresh_button.setMaximumWidth(60)
+                
+                # Campo de endereço
+                address_bar = QLineEdit()
+                address_bar.setPlaceholderText("Digite o endereço da web")
+                
+                # Adicionar widgets à barra de navegação
+                nav_bar.addWidget(back_button)
+                nav_bar.addWidget(forward_button)
+                nav_bar.addWidget(refresh_button)
+                nav_bar.addWidget(address_bar)
+                
+                # Criar widget para conter a barra de navegação
+                nav_widget = QWidget()
+                nav_widget.setLayout(nav_bar)
+                nav_widget.setContentsMargins(0, 0, 0, 0)  # Remove todas as margens do widget de navegação
+                nav_widget.setFixedHeight(50)  # Define altura fixa para a barra de navegação
+                
                 # Carregar sites do arquivo JSON
                 with open('sites.json', 'r', encoding='utf-8') as f:
                     sites = json.load(f)
@@ -3094,24 +3204,39 @@ class MainWindow(QMainWindow):
                     url = site['url']
                     if not url.startswith(('http://', 'https://')):
                         url = 'https://' + url
-
+                    
+                    # Criar visualizador web
+                    web_view = QWebEngineView()
+                    web_view.setUrl(QUrl(url))
+                    web_view.setContentsMargins(0, 0, 0, 0)
+                    
+                    # Conectar botões e campo de endereço
+                    back_button.clicked.connect(web_view.back)
+                    forward_button.clicked.connect(web_view.forward)
+                    refresh_button.clicked.connect(web_view.reload)
+                    address_bar.returnPressed.connect(
+                        lambda: self.load_url(web_view, address_bar.text())
+                    )
+                    
+                    # Atualizar o campo de endereço quando a URL mudar
+                    web_view.urlChanged.connect(lambda qurl: address_bar.setText(qurl.toString()))
+                    
+                    # Adicionar widgets ao layout
+                    layout.addWidget(nav_widget)
+                    layout.addWidget(web_view)
+                    
                     # Verificar se já existe uma aba com este site
                     for i in range(self.sites_tabs.count()):
                         if self.sites_tabs.tabText(i) == site_info:
                             self.sites_tabs.setCurrentIndex(i)
                             return
-
-                    # Criar visualizador web
-                    web_view = QWebEngineView()
-                    web_view.setUrl(QUrl(url))
-
+                    
                     # Adicionar nova aba
-                    index = self.sites_tabs.addTab(web_view, site_info)
+                    index = self.sites_tabs.addTab(container, site_info)
                     self.sites_tabs.setCurrentIndex(index)
-
+                    
         except Exception as e:
-            import traceback
-            print(traceback.format_exc())  # Isso vai mostrar o erro detalhado
+            print(f"Erro ao carregar site: {str(e)}")
             QMessageBox.warning(
                 self,
                 "Erro",
