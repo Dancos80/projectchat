@@ -1,0 +1,190 @@
+Código para bloqueio/desbloqueio de USB no Windows.
+
+import subprocess
+import ctypes
+import sys
+import hashlib
+import json
+import os
+from tkinter import *
+from tkinter import messagebox
+from PIL import Image, ImageTk
+
+class GerenciadorUSB:
+    def __init__(self):
+        self.config_file = 'config.json'
+        self.senha_padrao = "admin123"
+        self.carregar_configuracao()
+        self.criar_interface()
+
+    def _hash_senha(self, senha):
+        return hashlib.sha256(senha.encode()).hexdigest()
+
+    def carregar_configuracao(self):
+        if os.path.exists(self.config_file):
+            with open(self.config_file, 'r') as f:
+                config = json.load(f)
+                self.senha_padrao = config.get('senha', self.senha_padrao)
+        else:
+            self.salvar_configuracao()
+
+    def salvar_configuracao(self):
+        with open(self.config_file, 'w') as f:
+            json.dump({'senha': self.senha_padrao}, f)
+
+    def criar_interface(self):
+        self.janela = Tk()
+        self.janela.title("Gerenciador de Portas USB")
+        self.janela.geometry("400x500")
+        self.janela.resizable(False, False)
+        
+        # Configurar cores e estilo
+        bg_color = "#f0f0f0"
+        button_color = "#4CAF50"
+        self.janela.configure(bg=bg_color)
+
+        # Carregar e exibir imagem
+        try:
+            img = Image.open("usb_icon.png")  # Substitua pelo caminho da sua imagem
+            img = img.resize((150, 150))
+            self.photo = ImageTk.PhotoImage(img)
+            label_img = Label(self.janela, image=self.photo, bg=bg_color)
+            label_img.pack(pady=20)
+        except:
+            print("Imagem não encontrada")
+
+        # Título
+        Label(self.janela, text="Controle de Portas USB", 
+              font=("Helvetica", 16, "bold"), bg=bg_color).pack(pady=10)
+
+        # Botões
+        Button(self.janela, text="Bloquear USB", command=self.block_usb,
+               width=20, height=2, bg=button_color, fg="white",
+               font=("Helvetica", 10)).pack(pady=10)
+
+        Button(self.janela, text="Desbloquear USB", command=self.unblock_usb,
+               width=20, height=2, bg=button_color, fg="white",
+               font=("Helvetica", 10)).pack(pady=10)
+
+        Button(self.janela, text="Alterar Senha", command=self.mostrar_dialogo_senha,
+               width=20, height=2, bg=button_color, fg="white",
+               font=("Helvetica", 10)).pack(pady=10)
+
+        Button(self.janela, text="Exibir Senha Atual", command=self.mostrar_senha_atual,
+               width=20, height=2, bg="#FF9800", fg="white",
+               font=("Helvetica", 10)).pack(pady=10)
+
+        Button(self.janela, text="Sair", command=self.janela.quit,
+               width=20, height=2, bg="red", fg="white",
+               font=("Helvetica", 10)).pack(pady=10)
+
+    def verificar_senha(self):
+        dialog = Toplevel(self.janela)
+        dialog.title("Verificação de Senha")
+        dialog.geometry("300x150")
+        dialog.transient(self.janela)
+        dialog.grab_set()
+
+        Label(dialog, text="Digite a senha de administrador:").pack(pady=10)
+        senha_entry = Entry(dialog, show="*")
+        senha_entry.pack(pady=10)
+
+        resultado = [False]
+
+        def verificar():
+            if senha_entry.get() == self.senha_padrao:
+                resultado[0] = True
+                dialog.destroy()
+            else:
+                messagebox.showerror("Erro", "Senha incorreta!")
+                dialog.destroy()
+
+        Button(dialog, text="Confirmar", command=verificar).pack(pady=10)
+        
+        dialog.wait_window()
+        return resultado[0]
+
+    def mostrar_senha_atual(self):
+        if not self.verificar_senha():
+            return
+            
+        dialog = Toplevel(self.janela)
+        dialog.title("Senha Atual")
+        dialog.geometry("300x150")
+        dialog.transient(self.janela)
+        dialog.grab_set()
+
+        Label(dialog, text="Senha atual:", font=("Helvetica", 12, "bold")).pack(pady=5)
+        Label(dialog, text=self.senha_padrao, font=("Helvetica", 14)).pack(pady=10)
+
+        Button(dialog, text="Fechar", command=dialog.destroy,
+               width=15, bg="#FF9800", fg="white").pack(pady=10)
+
+    def mostrar_dialogo_senha(self):
+        if not self.verificar_senha():
+            return
+
+        dialog = Toplevel(self.janela)
+        dialog.title("Alterar Senha")
+        dialog.geometry("300x200")
+        dialog.transient(self.janela)
+        dialog.grab_set()
+
+        Label(dialog, text="Nova senha:").pack(pady=5)
+        nova_senha = Entry(dialog, show="*")
+        nova_senha.pack(pady=5)
+
+        Label(dialog, text="Confirme a nova senha:").pack(pady=5)
+        confirma_senha = Entry(dialog, show="*")
+        confirma_senha.pack(pady=5)
+
+        def alterar():
+            if nova_senha.get() == confirma_senha.get():
+                self.senha_padrao = nova_senha.get()
+                self.salvar_configuracao()
+                messagebox.showinfo("Sucesso", "Senha alterada com sucesso!")
+                dialog.destroy()
+            else:
+                messagebox.showerror("Erro", "As senhas não coincidem!")
+
+        Button(dialog, text="Alterar Senha", command=alterar).pack(pady=10)
+
+    def block_usb(self):
+        if not self.verificar_senha():
+            return
+        
+        try:
+            subprocess.run(['reg', 'add', 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\USBSTOR', 
+                          '/v', 'Start', '/t', 'REG_DWORD', '/d', '4', '/f'], check=True)
+            messagebox.showinfo("Sucesso", "Portas USB bloqueadas com sucesso!")
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("Erro", f"Erro ao bloquear portas USB: {e}")
+
+    def unblock_usb(self):
+        if not self.verificar_senha():
+            return
+        
+        try:
+            subprocess.run(['reg', 'add', 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\USBSTOR', 
+                          '/v', 'Start', '/t', 'REG_DWORD', '/d', '3', '/f'], check=True)
+            messagebox.showinfo("Sucesso", "Portas USB desbloqueadas com sucesso!")
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("Erro", f"Erro ao desbloquear portas USB: {e}")
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+def main():
+    if not is_admin():
+        messagebox.showerror("Erro", "Este programa requer privilégios de administrador!")
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        return
+
+    app = GerenciadorUSB()
+    app.janela.mainloop()
+
+if __name__ == "__main__":
+    main()
