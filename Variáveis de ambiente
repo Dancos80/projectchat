@@ -1,0 +1,30 @@
+--hidden-import PySide6
+--hidden-import PySide6.QtCore
+--hidden-import PySide6.QtGui
+--hidden-import PySide6.QtWidgets
+--hidden-import PySide6.QtWebEngineWidgets
+--hidden-import PySide6.QtWebEngineCore
+--hidden-import PySide6.QtPrintSupport
+--hidden-import win32com.client
+--hidden-import win32com
+--hidden-import psutil
+--hidden-import fitz
+--hidden-import openpyxl
+--hidden-import xml.etree.ElementTree
+--hidden-import xml.parsers.expat
+--add-data "C:\Users\Daniel\AppData\Local\Programs\Python\Python312\DLLs\pyexpat.pyd;."
+--add-data "C:\Users\Daniel\AppData\Local\Programs\Python\Python312\DLLs\libexpat.dll;."
+
+
+
+failed to load Python DLL
+'C:\ProjetoChat\build\TelainicialPyside6.2\_internal\python312.dll
+LoadLibrary: Não foi possível encontrar o módulo especificado.
+
+
+
+C:\Users\Daniel\AppData\Local\Programs\Python\Python312\Scripts\
+C:\Users\Daniel\AppData\Local\Programs\Python\Python312\
+
+
+python -m PyInstaller --onefile --noconsole TelainicialPyside6.3.py
