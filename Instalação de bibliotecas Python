@@ -1,0 +1,179 @@
+Instalação de bibliotecas Python.
+
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+import subprocess
+import sys
+import os
+from importlib.metadata import distributions
+
+class GerenciadorBibliotecas:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Gerenciador de Bibliotecas Python")
+        
+        # Frame principal
+        self.frame = ttk.Frame(root, padding="10")
+        self.frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Área de texto para lista de bibliotecas
+        self.text_area = tk.Text(self.frame, height=10, width=50)
+        self.text_area.grid(row=0, column=0, columnspan=3, pady=5)
+        
+        # Botões principais
+        self.btn_adicionar = ttk.Button(self.frame, text="Adicionar", command=self.instalar_bibliotecas)
+        self.btn_adicionar.grid(row=1, column=0, pady=5, padx=5)
+        
+        self.btn_atualizar = ttk.Button(self.frame, text="Atualizar", command=self.atualizar_bibliotecas)
+        self.btn_atualizar.grid(row=1, column=1, pady=5, padx=5)
+        
+        # Barra de progresso
+        self.progress = ttk.Progressbar(self.frame, length=300, mode='determinate')
+        self.progress.grid(row=2, column=0, columnspan=2, pady=5, padx=5)
+        
+        self.label_progresso = ttk.Label(self.frame, text="0%")
+        self.label_progresso.grid(row=2, column=2, pady=5)
+        
+        # Checkbox
+        self.gerar_lista_var = tk.BooleanVar()
+        self.check_gerar_lista = ttk.Checkbutton(
+            self.frame, 
+            text="Gerar lista detalhada de bibliotecas",
+            variable=self.gerar_lista_var
+        )
+        self.check_gerar_lista.grid(row=3, column=0, columnspan=3, pady=5)
+        
+        # Botões de ação
+        self.btn_backup = ttk.Button(self.frame, text="Backup", command=self.fazer_backup)
+        self.btn_backup.grid(row=4, column=0, pady=5, padx=5)
+        
+        self.btn_abrir = ttk.Button(self.frame, text="Abrir", command=self.abrir_diretorio)
+        self.btn_abrir.grid(row=4, column=1, pady=5, padx=5)
+
+    def instalar_bibliotecas(self):
+        bibliotecas = self.text_area.get("1.0", tk.END).strip().split('\n')
+        total = len(bibliotecas)
+        
+        for i, biblioteca in enumerate(bibliotecas, 1):
+            if biblioteca:
+                try:
+                    self.progress['value'] = (i / total) * 100
+                    self.label_progresso['text'] = f"{int(self.progress['value'])}%"
+                    self.root.update_idletasks()
+                    
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", biblioteca.strip()])
+                except subprocess.CalledProcessError:
+                    messagebox.showerror("Erro", f"Erro ao instalar {biblioteca}")
+        
+        self.progress['value'] = 0
+        self.label_progresso['text'] = "0%"
+        messagebox.showinfo("Sucesso", "Instalação concluída!")
+
+    def atualizar_bibliotecas(self):
+        bibliotecas = self.text_area.get("1.0", tk.END).strip().split('\n')
+        total = len(bibliotecas)
+        
+        for i, biblioteca in enumerate(bibliotecas, 1):
+            if biblioteca:
+                try:
+                    self.progress['value'] = (i / total) * 100
+                    self.label_progresso['text'] = f"{int(self.progress['value'])}%"
+                    self.root.update_idletasks()
+                    
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", biblioteca.strip()])
+                except subprocess.CalledProcessError:
+                    messagebox.showerror("Erro", f"Erro ao atualizar {biblioteca}")
+        
+        self.progress['value'] = 0
+        self.label_progresso['text'] = "0%"
+        messagebox.showinfo("Sucesso", "Atualização concluída!")
+
+    def fazer_backup(self):
+        try:
+            # Obtém todas as bibliotecas instaladas
+            installed_packages = []
+            for dist in distributions():
+                try:
+                    nome = dist.metadata['Name']
+                    versao = dist.version
+                    installed_packages.append((nome, versao))
+                except Exception:
+                    continue
+            
+            if not installed_packages:
+                messagebox.showwarning("Aviso", "Não foram encontradas bibliotecas instaladas!")
+                return
+            
+            # Abre diálogo para escolher onde salvar
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".txt",
+                filetypes=[("Arquivos de texto", "*.txt"), ("Todos os arquivos", "*.*")],
+                title="Salvar backup das bibliotecas"
+            )
+            
+            if filename:
+                diretorio = os.path.dirname(filename)
+                os.makedirs(diretorio, exist_ok=True)
+                
+                # Salva a lista de bibliotecas instaladas
+                with open(filename, "w", encoding='utf-8') as f:
+                    f.write("\n".join(sorted(installed_packages)))
+                
+                self.ultimo_diretorio = diretorio
+                messagebox.showinfo("Sucesso", f"Backup das bibliotecas instaladas salvo em {filename}")
+                
+                # Se o checkbox estiver marcado, salva também as versões detalhadas
+                if self.gerar_lista_var.get():
+                    detalhes_filename = os.path.join(diretorio, "bibliotecas_detalhes.txt")
+                    self.salvar_detalhes_bibliotecas(detalhes_filename)
+        
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao fazer backup: {str(e)}")
+
+    def salvar_detalhes_bibliotecas(self, filename):
+        try:
+            # Obtém informações detalhadas das bibliotecas
+            detalhes = []
+            for dist in distributions():
+                try:
+                    nome = dist.metadata['Name']
+                    versao = dist.version
+                    sumario = dist.metadata.get('Summary', 'Sem descrição disponível')
+                    autor = dist.metadata.get('Author', 'Autor não especificado')
+                    
+                    detalhes.append(f"Biblioteca: {nome}")
+                    detalhes.append(f"Versão: {versao}")
+                    detalhes.append(f"Descrição: {sumario}")
+                    detalhes.append(f"Autor: {autor}")
+                    detalhes.append("-" * 80)  # Linha separadora
+                    detalhes.append("")  # Linha em branco
+                except Exception as e:
+                    detalhes.append(f"Erro ao obter detalhes de {dist.metadata['Name']}: {str(e)}")
+                    detalhes.append("-" * 80)
+                    detalhes.append("")
+            
+            # Salva os detalhes em arquivo
+            with open(filename, "w", encoding='utf-8') as f:
+                f.write("\n".join(detalhes))
+            
+            messagebox.showinfo("Sucesso", f"Detalhes das bibliotecas salvos em {filename}")
+        
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao salvar detalhes: {str(e)}")
+
+    def abrir_diretorio(self):
+        if hasattr(self, 'ultimo_diretorio') and os.path.exists(self.ultimo_diretorio):
+            if os.name == 'nt':  # Windows
+                os.startfile(self.ultimo_diretorio)
+            else:  # Linux/Mac
+                subprocess.run(['xdg-open', self.ultimo_diretorio])
+        else:
+            messagebox.showwarning("Aviso", "Nenhum diretório disponível para abrir!")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = GerenciadorBibliotecas(root)
+    root.mainloop()
+
+
+
